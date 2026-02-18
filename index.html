@@ -94,7 +94,14 @@ Valider
   <div class="label">Historique distributions</div>
   <div id="historyBox" class="small"></div>
 </div>
+ 
+<--PLANNING -->
 
+<div class="card">
+  <div class="label">Planning automatique</div>
+  <button class="btn orange" onclick="addProg()">+ Ajouter programme</button>
+  <div id="progList"></div>
+</div>
 <script>
 const deviceID="crokauto_001";
 const client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
@@ -166,6 +173,60 @@ function displayHistory(data){
   document.getElementById("historyBox").innerHTML=html;
 }
 
+// ===== PLANNING MQTT =====
+
+let schedule = [];
+
+function loadSchedule(str){
+  schedule=[];
+  if(!str) return;
+
+  str.split(",").forEach(x=>{
+    let t=x.split("|");
+    if(t.length==2){
+      schedule.push({time:t[0],mask:t[1]});
+    }
+  });
+
+  renderSchedule();
+}
+
+function renderSchedule(){
+  const list=document.getElementById("progList");
+  list.innerHTML="";
+
+  schedule.forEach((p,i)=>{
+
+    const days=["L","M","M","J","V","S","D"];
+    let mask=parseInt(p.mask)||0;
+    let d="";
+
+    for(let k=0;k<7;k++){
+      if(mask&(1<<k)) d+=days[k]+" ";
+    }
+
+    list.innerHTML+=`
+    <div class="card">
+      ${p.time} — ${d}
+      <button class="btn red" onclick="delProg(${i})">Supprimer</button>
+    </div>`;
+  });
+}
+
+function addProg(){
+  schedule.push({time:"07:00",mask:127});
+  sendSchedule();
+}
+
+function delProg(i){
+  schedule.splice(i,1);
+  sendSchedule();
+}
+
+function sendSchedule(){
+  let s=schedule.map(p=>p.time+"|"+p.mask).join(",");
+  send("schedule:"+s);
+}
 
 setInterval(()=>{
 if(!lastStatus) return;
@@ -173,6 +234,9 @@ if(!lastStatus) return;
 document.getElementById("status").innerText = lastStatus.state;
 document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
 document.getElementById("target").innerText = lastStatus.target.toFixed(1);
+ if(lastStatus.schedule){
+  loadSchedule(lastStatus.schedule);
+}
 document.getElementById("lampDot")
 .classList.toggle("on", lastStatus.lamp==="ON");
 document.getElementById("autoDot").style.background =
