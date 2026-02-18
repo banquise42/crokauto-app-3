@@ -95,8 +95,7 @@ Valider
   <div id="historyBox" class="small"></div>
 </div>
  
-<--PLANNING -->
-
+<!-- PLANNING -->
 <div class="card">
   <div class="label">Planning automatique</div>
   <button class="btn orange" onclick="addProg()">+ Ajouter programme</button>
@@ -109,6 +108,7 @@ const client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 let editingRation = false;
 let mqttReady=false;
 let lastStatus=null;
+let lastScheduleString = "";
 
 client.on("connect",()=>{
   mqttReady=true;
@@ -234,9 +234,11 @@ if(!lastStatus) return;
 document.getElementById("status").innerText = lastStatus.state;
 document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
 document.getElementById("target").innerText = lastStatus.target.toFixed(1);
- if(lastStatus.schedule){
+ if(lastStatus.schedule && lastStatus.schedule !== lastScheduleString){
+  lastScheduleString = lastStatus.schedule;
   loadSchedule(lastStatus.schedule);
 }
+
 document.getElementById("lampDot")
 .classList.toggle("on", lastStatus.lamp==="ON");
 document.getElementById("autoDot").style.background =
