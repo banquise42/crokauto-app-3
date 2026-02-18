@@ -68,7 +68,7 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 <div class="card grid">
 <button class="btn green" onclick="cmd('dist')">🍽 Distribution</button>
 <button class="btn red" onclick="cmd('stop')">⛔ STOP</button>
-<button class="btn purple" onclick="cmd('vid')">🧹 Vidange</button>
+<button class="btn purple" onclick="showHistory()">📜 Historique</button>
 <button class="btn gold" onclick="toggleLamp()">
 <span id="lampDot" class="dot"></span>💡 Lampe
 </button>
@@ -90,6 +90,10 @@ Valider
 </button>
 </div>
 
+<div class="card">
+  <div class="label">Historique distributions</div>
+  <div id="historyBox" class="small"></div>
+</div>
 
 <script>
 const deviceID="crokauto_001";
@@ -100,13 +104,22 @@ let mqttReady=false;
 let lastStatus=null;
 
 client.on("connect",()=>{
-mqttReady=true;
-client.subscribe("crok/"+deviceID+"/status");
+  mqttReady=true;
+  client.subscribe("crok/"+deviceID+"/status");
+  client.subscribe("crok/"+deviceID+"/history");
+  send("gethistory"); // charge l'historique au démarrage
 });
 
 client.on("message",(topic,payload)=>{
-if(topic.endsWith("/status"))
-lastStatus=JSON.parse(payload.toString());
+
+  if(topic.endsWith("/status")){
+    lastStatus=JSON.parse(payload.toString());
+  }
+
+  if(topic.endsWith("/history")){
+    displayHistory(payload.toString());
+  }
+
 });
 
 function send(cmd){
@@ -120,13 +133,37 @@ function toggleAuto(){send("auto");}
 function setRation(){
   const input = document.getElementById("setg");
   const g = parseFloat(input.value);
-
   if(isNaN(g) || g <= 0) return;
-
   send("set:"+g);
-
   input.value = "";   // vide la case après validation
   input.blur();
+}
+function showHistory(){
+  send("gethistory");
+}
+
+function displayHistory(data){
+
+  if(!data) return;
+
+  const list = data.split(",");
+
+  let html="";
+
+  list.forEach(item=>{
+    const parts=item.split("|");
+    if(parts.length===2){
+      const date=new Date(parseInt(parts[0])*1000);
+      const weight=parts[1];
+
+      html+=`
+      <div class="card">
+        ${date.toLocaleString()} — ${weight} g
+      </div>`;
+    }
+  });
+
+  document.getElementById("historyBox").innerHTML=html;
 }
 
 
