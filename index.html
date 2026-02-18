@@ -69,7 +69,10 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 <div class="label">Définir poids de la ration</div>
 
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-<input id="setg" type="number" style="width:70px;text-align:center">
+<input id="setg" type="number"
+style="width:70px;text-align:center"
+onfocus="editingRation=true"
+onblur="editingRation=false">
 <div class="small">grammes</div>
 </div>
 
@@ -82,7 +85,8 @@ Valider
 <script>
 const deviceID="crokauto_001";
 const client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-
+  
+let editingRation = false;
 let mqttReady=false;
 let lastStatus=null;
 
@@ -105,8 +109,14 @@ function cmd(c){send(c);}
 function toggleLamp(){send("lamp");}
 function toggleAuto(){send("auto");}
 function setRation(){
-const g=document.getElementById("setg").value;
-send("set:"+g);
+  const input = document.getElementById("setg");
+  const g = parseFloat(input.value);
+
+  if(isNaN(g) || g <= 0) return;
+
+  send("set:"+g);
+  editingRation = false;
+  input.blur();
 }
 
 setInterval(()=>{
@@ -115,10 +125,11 @@ if(!lastStatus) return;
 document.getElementById("status").innerText = lastStatus.state;
 document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
 document.getElementById("target").innerText = lastStatus.target.toFixed(1);
+if(!editingRation){
 document.getElementById("setg").value = lastStatus.target;
+}
 document.getElementById("lampDot")
 .classList.toggle("on", lastStatus.lamp==="ON");
-
 document.getElementById("autoDot").style.background =
 (lastStatus.auto==="ON") ? "#2DF006" : "#c0392b";
 
