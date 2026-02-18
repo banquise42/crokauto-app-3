@@ -9,9 +9,9 @@
 
 <style>
 body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
-.top{position:sticky;top:0;background:#ff7a00;color:#000;padding:12px;text-align:center;font-weight:bold;font-size:20px}
+.top{position:sticky;top:0;background:#ff7a00;color:#000;padding:12px;text-align:center;font-weight:bold;font-size:20px;box-shadow:0 5px 15px rgba(0,0,0,.5)}
 .wrap{max-width:520px;margin:auto;padding:10px}
-.card{background:#151515;border-radius:18px;padding:15px;margin-top:10px}
+.card{background:#151515;border-radius:18px;padding:15px;margin-top:10px;box-shadow:0 10px 25px rgba(0,0,0,.5)}
 .label{color:#aaa;font-size:13px}
 .value{font-size:28px;font-weight:bold}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -23,19 +23,14 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 .purple{background:#C472CC;color:#000}
 .gold{background:#FFD700;color:#000}
 .gray{background:#333;color:#fff}
+.tabs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.tab{height:42px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:#222;font-weight:bold;cursor:pointer;font-size:14px}
+.tab.active{background:#ff7a00;color:#000}
 .hidden{display:none !important}
-.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
-.dot.on{background:#2DF006}
+input{width:100%;padding:12px;border-radius:12px;border:none;font-size:18px;margin-top:6px}
 .small{font-size:13px;color:#aaa;margin-top:6px}
- input{
-  width:100%;
-  padding:12px;
-  border-radius:12px;
-  border:none;
-  font-size:18px;
-  margin-top:6px;
-}
- 
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;background:transparent}
+.dot.on{background:#2DF006}
 </style>
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -46,6 +41,15 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 <div class="top">🐾 CrokAuto 🐾</div>
 
 <div class="wrap">
+
+<div class="tabs">
+<div id="tabHome" class="tab active" onclick="showTab('home')">🏠 Accueil</div>
+<div id="tabSettings" class="tab" onclick="showTab('settings')">⚙️ Paramètres</div>
+</div>
+
+<!-- ================= ACCUEIL ================= -->
+
+<div id="homePanel">
 
 <div class="card">
 <div class="label">État</div>
@@ -66,185 +70,89 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 </div>
 
 <div class="card grid">
-<button class="btn green" onclick="cmd('dist')">🍽 Distribution</button>
-<button class="btn red" onclick="cmd('stop')">⛔ STOP</button>
-<button class="btn purple" onclick="showHistory()">📜 Historique</button>
-<button class="btn gold" onclick="toggleLamp()">
+<button class="btn green" onclick="send('dist')">🍽 Distribution</button>
+<button class="btn red" onclick="send('stop')">⛔ STOP</button>
+<button class="btn purple" onclick="send('gethistory')">📜 Historique</button>
+<button class="btn gold" onclick="send('lamp')">
 <span id="lampDot" class="dot"></span>💡 Lampe
 </button>
 </div>
 
 <div class="card">
 <div class="label">Définir poids de la ration</div>
-
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-  <input id="setg" type="number"
-  style="width:70px;text-align:center"
-  onfocus="editingRation=true"
-  onblur="editingRation=false">
-  <div class="small">grammes</div>
+<input id="setg" type="number">
+<button class="btn green" onclick="send('set:'+setg.value)">Valider</button>
 </div>
 
-<button class="btn green" onclick="setRation()" style="width:27%">
-Valider
-</button>
 </div>
 
-<div class="card">
-  <div class="label">Historique distributions</div>
-  <div id="historyBox" class="small"></div>
+<!-- ================= PARAMÈTRES ================= -->
+
+<div id="settingsPanel" class="hidden">
+
+<div class="tabs">
+<div id="subPlan" class="tab active" onclick="showSub('plan')">📅 Planning</div>
+<div id="subLamp" class="tab" onclick="showSub('lamp')">💡Tempo Lampe</div>
+<div id="subMail" class="tab" onclick="showSub('mail')">💌 Email</div>
+<div id="subMaint" class="tab" onclick="showSub('maint')">🛠 Maintenance</div>
 </div>
- 
-<!-- PLANNING -->
-<div class="card">
-  <div class="label">Planning automatique</div>
-  <button class="btn orange" onclick="addProg()">+ Ajouter programme</button>
-  <div id="progList"></div>
+
+<div id="panelPlan" class="card"></div>
+<div id="panelLamp" class="card hidden"></div>
+<div id="panelMail" class="card hidden"></div>
+<div id="panelMaint" class="card hidden"></div>
+
 </div>
+
+</div>
+
 <script>
 const deviceID="crokauto_001";
 const client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-  
-let editingRation = false;
-let mqttReady=false;
+
 let lastStatus=null;
-let lastScheduleString = "";
 
 client.on("connect",()=>{
-  mqttReady=true;
-  client.subscribe("crok/"+deviceID+"/status");
-  client.subscribe("crok/"+deviceID+"/history");
-  send("gethistory"); // charge l'historique au démarrage
+client.subscribe("crok/"+deviceID+"/status");
 });
 
 client.on("message",(topic,payload)=>{
-
-  if(topic.endsWith("/status")){
-    lastStatus=JSON.parse(payload.toString());
-  }
-
-  if(topic.endsWith("/history")){
-    displayHistory(payload.toString());
-  }
-
+if(topic.endsWith("/status")){
+lastStatus=JSON.parse(payload.toString());
+updateUI();
+}
 });
 
 function send(cmd){
-if(!mqttReady) return;
 client.publish("crok/"+deviceID+"/cmd",cmd);
 }
 
-function cmd(c){send(c);}
-function toggleLamp(){send("lamp");}
 function toggleAuto(){send("auto");}
-function setRation(){
-  const input = document.getElementById("setg");
-  const g = parseFloat(input.value);
-  if(isNaN(g) || g <= 0) return;
-  send("set:"+g);
-  input.value = "";   // vide la case après validation
-  input.blur();
-}
-function showHistory(){
-  send("gethistory");
-}
 
-function displayHistory(data){
-
-  if(!data) return;
-
-  const list = data.split(",");
-
-  let html="";
-
-  list.forEach(item=>{
-    const parts=item.split("|");
-    if(parts.length===2){
-      const date=new Date(parseInt(parts[0])*1000);
-      const weight=parts[1];
-
-      html+=`
-      <div class="card">
-        ${date.toLocaleString()} — ${weight} g
-      </div>`;
-    }
-  });
-
-  document.getElementById("historyBox").innerHTML=html;
-}
-
-// ===== PLANNING MQTT =====
-
-let schedule = [];
-
-function loadSchedule(str){
-  schedule=[];
-  if(!str) return;
-
-  str.split(",").forEach(x=>{
-    let t=x.split("|");
-    if(t.length==2){
-      schedule.push({time:t[0],mask:t[1]});
-    }
-  });
-
-  renderSchedule();
-}
-
-function renderSchedule(){
-  const list=document.getElementById("progList");
-  list.innerHTML="";
-
-  schedule.forEach((p,i)=>{
-
-    const days=["L","M","M","J","V","S","D"];
-    let mask=parseInt(p.mask)||0;
-    let d="";
-
-    for(let k=0;k<7;k++){
-      if(mask&(1<<k)) d+=days[k]+" ";
-    }
-
-    list.innerHTML+=`
-    <div class="card">
-      ${p.time} — ${d}
-      <button class="btn red" onclick="delProg(${i})">Supprimer</button>
-    </div>`;
-  });
-}
-
-function addProg(){
-  schedule.push({time:"07:00",mask:127});
-  sendSchedule();
-}
-
-function delProg(i){
-  schedule.splice(i,1);
-  sendSchedule();
-}
-
-function sendSchedule(){
-  let s=schedule.map(p=>p.time+"|"+p.mask).join(",");
-  send("schedule:"+s);
-}
-
-setInterval(()=>{
+function updateUI(){
 if(!lastStatus) return;
 
-document.getElementById("status").innerText = lastStatus.state;
-document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
-document.getElementById("target").innerText = lastStatus.target.toFixed(1);
- if(lastStatus.schedule && lastStatus.schedule !== lastScheduleString){
-  lastScheduleString = lastStatus.schedule;
-  loadSchedule(lastStatus.schedule);
+status.innerText=lastStatus.state;
+weight.innerText=lastStatus.weight.toFixed(1);
+target.innerText=lastStatus.target.toFixed(1);
+
+lampDot.classList.toggle("on",lastStatus.lamp==="ON");
+autoDot.style.background=(lastStatus.auto==="ON")?"#2DF006":"#c0392b";
 }
 
-document.getElementById("lampDot")
-.classList.toggle("on", lastStatus.lamp==="ON");
-document.getElementById("autoDot").style.background =
-(lastStatus.auto==="ON") ? "#2DF006" : "#c0392b";
+function showTab(t){
+homePanel.classList.toggle("hidden",t!=='home');
+settingsPanel.classList.toggle("hidden",t!=='settings');
+tabHome.classList.toggle("active",t==='home');
+tabSettings.classList.toggle("active",t==='settings');
+}
 
-},1000);
+function showSub(s){
+['plan','lamp','mail','maint'].forEach(x=>{
+document.getElementById('panel'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('hidden',x!==s);
+document.getElementById('sub'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active',x===s);
+});
+}
 </script>
 
 </body>
