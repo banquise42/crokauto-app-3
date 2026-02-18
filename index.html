@@ -6,14 +6,27 @@
 <title>CrokAuto</title>
 
 <link rel="icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
 
 <style>
 body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
-.top{position:sticky;top:0;background:#ff7a00;color:#000;padding:12px;text-align:center;font-weight:bold;font-size:20px;box-shadow:0 5px 15px rgba(0,0,0,.5)}
+.top{
+position:sticky;
+top:0;
+background:#ff7a00;
+color:#000;
+padding:12px;
+text-align:center;
+font-weight:bold;
+font-size:20px;
+box-shadow:0 5px 15px rgba(0,0,0,.5)
+}
 .wrap{max-width:520px;margin:auto;padding:10px}
+
 .card{background:#151515;border-radius:18px;padding:15px;margin-top:10px;box-shadow:0 10px 25px rgba(0,0,0,.5)}
 .label{color:#aaa;font-size:13px}
 .value{font-size:28px;font-weight:bold}
+
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .btn{border:none;border-radius:16px;padding:16px;font-size:18px;font-weight:bold;cursor:pointer}
 .green{background:#2DF006;color:#000}
@@ -23,21 +36,49 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 .purple{background:#C472CC;color:#000}
 .gold{background:#FFD700;color:#000}
 .gray{background:#333;color:#fff}
-.tabs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
-.tab{height:42px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:#222;font-weight:bold;cursor:pointer;font-size:14px}
+
+.tabs{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:8px;
+margin-top:10px;
+}
+
+.tab{
+height:42px;
+display:flex;
+align-items:center;
+justify-content:center;
+border-radius:14px;
+background:#222;
+font-weight:bold;
+cursor:pointer;
+font-size:14px;
+}
+
 .tab.active{background:#ff7a00;color:#000}
+
 .hidden{display:none !important}
+#editor{display:none}
+#editor.show{display:flex !important}
 input{width:100%;padding:12px;border-radius:12px;border:none;font-size:18px;margin-top:6px}
 .small{font-size:13px;color:#aaa;margin-top:6px}
-.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;background:transparent}
-.dot.on{background:#2DF006}
-</style>
+.dot{
+width:10px;
+height:10px;
+border-radius:50%;
+display:inline-block;
+margin-right:6px;
+background:transparent;
+}
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+.dot.on{
+background:#2DF006;
+}
+</style>
 </head>
 
 <body>
-
 <div class="top">🐾 CrokAuto 🐾</div>
 
 <div class="wrap">
@@ -70,90 +111,23 @@ input{width:100%;padding:12px;border-radius:12px;border:none;font-size:18px;marg
 </div>
 
 <div class="card grid">
-<button class="btn green" onclick="send('dist')">🍽 Distribution</button>
-<button class="btn red" onclick="send('stop')">⛔ STOP</button>
-<button class="btn purple" onclick="send('gethistory')">📜 Historique</button>
-<button class="btn gold" onclick="send('lamp')">
+<button class="btn green" onclick="cmd('dist')">🍽 Distribution</button>
+<button class="btn red" onclick="cmd('stop')">⛔ STOP</button>
+<button class="btn purple" onclick="window.location='/history'">📜 Historique</button>
+<button id="lampBtn" class="btn gold" onclick="toggleLamp()">
 <span id="lampDot" class="dot"></span>💡 Lampe
 </button>
 </div>
 
 <div class="card">
 <div class="label">Définir poids de la ration</div>
-<input id="setg" type="number">
-<button class="btn green" onclick="send('set:'+setg.value)">Valider</button>
+
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+<input id="setg" type="number" style="width:70px;text-align:center">
+<div class="small">grammes</div>
+</div>
+
+<button class="btn green" onclick="setRation()">Valider</button>
 </div>
 
 </div>
-
-<!-- ================= PARAMÈTRES ================= -->
-
-<div id="settingsPanel" class="hidden">
-
-<div class="tabs">
-<div id="subPlan" class="tab active" onclick="showSub('plan')">📅 Planning</div>
-<div id="subLamp" class="tab" onclick="showSub('lamp')">💡Tempo Lampe</div>
-<div id="subMail" class="tab" onclick="showSub('mail')">💌 Email</div>
-<div id="subMaint" class="tab" onclick="showSub('maint')">🛠 Maintenance</div>
-</div>
-
-<div id="panelPlan" class="card"></div>
-<div id="panelLamp" class="card hidden"></div>
-<div id="panelMail" class="card hidden"></div>
-<div id="panelMaint" class="card hidden"></div>
-
-</div>
-
-</div>
-
-<script>
-const deviceID="crokauto_001";
-const client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-
-let lastStatus=null;
-
-client.on("connect",()=>{
-client.subscribe("crok/"+deviceID+"/status");
-});
-
-client.on("message",(topic,payload)=>{
-if(topic.endsWith("/status")){
-lastStatus=JSON.parse(payload.toString());
-updateUI();
-}
-});
-
-function send(cmd){
-client.publish("crok/"+deviceID+"/cmd",cmd);
-}
-
-function toggleAuto(){send("auto");}
-
-function updateUI(){
-if(!lastStatus) return;
-
-status.innerText=lastStatus.state;
-weight.innerText=lastStatus.weight.toFixed(1);
-target.innerText=lastStatus.target.toFixed(1);
-
-lampDot.classList.toggle("on",lastStatus.lamp==="ON");
-autoDot.style.background=(lastStatus.auto==="ON")?"#2DF006":"#c0392b";
-}
-
-function showTab(t){
-homePanel.classList.toggle("hidden",t!=='home');
-settingsPanel.classList.toggle("hidden",t!=='settings');
-tabHome.classList.toggle("active",t==='home');
-tabSettings.classList.toggle("active",t==='settings');
-}
-
-function showSub(s){
-['plan','lamp','mail','maint'].forEach(x=>{
-document.getElementById('panel'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('hidden',x!==s);
-document.getElementById('sub'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active',x===s);
-});
-}
-</script>
-
-</body>
-</html>
