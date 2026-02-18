@@ -67,14 +67,17 @@ body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
 
 <div class="card">
 <div class="label">Définir poids de la ration</div>
+
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
 <input id="setg" type="number" style="width:70px;text-align:center">
 <div class="small">grammes</div>
 </div>
-<button class="btn green" onclick="setRation()">Valider</button>
+
+<button class="btn green" onclick="setRation()" style="width:100%">
+Valider
+</button>
 </div>
 
-</div>
 
 <script>
 const deviceID="crokauto_001";
@@ -112,7 +115,7 @@ if(!lastStatus) return;
 document.getElementById("status").innerText = lastStatus.state;
 document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
 document.getElementById("target").innerText = lastStatus.target.toFixed(1);
-
+document.getElementById("setg").value = lastStatus.target;
 document.getElementById("lampDot")
 .classList.toggle("on", lastStatus.lamp==="ON");
 
