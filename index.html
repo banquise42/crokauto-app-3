@@ -121,6 +121,120 @@ background:#2DF006;
 
 <div class="card">
 <div class="label">Définir poids de la ration</div>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrokAuto</title>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body{margin:0;background:#0b0b0b;color:#fff;font-family:-apple-system,Arial}
+.top{position:sticky;top:0;background:#ff7a00;color:#000;padding:12px;text-align:center;font-weight:bold;font-size:20px;box-shadow:0 5px 15px rgba(0,0,0,.5)}
+.wrap{max-width:520px;margin:auto;padding:10px}
+.card{background:#151515;border-radius:18px;padding:15px;margin-top:10px;box-shadow:0 10px 25px rgba(0,0,0,.5)}
+.label{color:#aaa;font-size:13px}
+.value{font-size:28px;font-weight:bold}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{border:none;border-radius:16px;padding:16px;font-size:18px;font-weight:bold;cursor:pointer}
+.green{background:#2DF006;color:#000}
+.red{background:#c0392b;color:#fff}
+.blue{background:#2980b9;color:#fff}
+.purple{background:#C472CC;color:#000}
+.gold{background:#FFD700;color:#000}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+</style>
+</head>
+
+<body>
+<div class="top">🐾 CrokAuto 🐾</div>
+<div class="wrap">
+
+<div class="card">
+<div class="label">État</div>
+<div class="value" id="status">---</div>
+
+<div class="label">Poids réserve</div>
+<div class="value"><span id="weight">0</span> g</div>
+
+<div class="label">Ration cible</div>
+<div class="value"><span id="target">0</span> g</div>
+</div>
+
+<div class="card">
+<button class="btn blue" onclick="toggleAuto()" style="width:100%">
+<span id="autoDot" class="dot"></span>🤖 Distribution Auto
+</button>
+</div>
+
+<div class="card grid">
+<button class="btn green" onclick="cmd('dist')">🍽 Distribution</button>
+<button class="btn red" onclick="cmd('stop')">⛔ STOP</button>
+<button class="btn purple" onclick="cmd('vid')">🧹 Vidange</button>
+<button class="btn gold" onclick="toggleLamp()">
+<span id="lampDot" class="dot"></span>💡 Lampe
+</button>
+</div>
+
+<div class="card">
+<div class="label">Définir poids de la ration</div>
+<input id="setg" type="number">
+<button class="btn green" onclick="setRation()">Valider</button>
+</div>
+
+</div>
+
+<script>
+const deviceID="crokauto_001";
+const client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+let lastStatus=null;
+
+client.on("connect",()=>{
+client.subscribe("crok/"+deviceID+"/status");
+});
+
+client.on("message",(topic,payload)=>{
+if(topic.endsWith("/status")){
+lastStatus=JSON.parse(payload.toString());
+}
+});
+
+function send(cmd){
+client.publish("crok/"+deviceID+"/cmd",cmd);
+}
+
+function cmd(c){send(c);}
+function toggleLamp(){send("lamp");}
+function toggleAuto(){send("auto");}
+
+function setRation(){
+const g=document.getElementById("setg").value;
+if(!g) return;
+send("set:"+g);
+document.getElementById("setg").value="";
+}
+
+setInterval(()=>{
+if(!lastStatus) return;
+
+document.getElementById("status").innerText = lastStatus.state;
+document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
+document.getElementById("target").innerText = lastStatus.target.toFixed(1);
+
+document.getElementById("lampDot").style.background =
+(lastStatus.lamp==="ON") ? "#2DF006" : "#c0392b";
+
+document.getElementById("autoDot").style.background =
+(lastStatus.auto==="ON") ? "#2DF006" : "#c0392b";
+
+},1000);
+</script>
+
+</body>
+</html>
 
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
 <input id="setg" type="number" style="width:70px;text-align:center">
