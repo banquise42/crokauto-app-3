@@ -124,9 +124,11 @@ function setRation(){
   if(isNaN(g) || g <= 0) return;
 
   send("set:"+g);
-  editingRation = false;
+
+  input.value = "";   // vide la case après validation
   input.blur();
 }
+
 
 setInterval(()=>{
 if(!lastStatus) return;
@@ -134,9 +136,6 @@ if(!lastStatus) return;
 document.getElementById("status").innerText = lastStatus.state;
 document.getElementById("weight").innerText = lastStatus.weight.toFixed(1);
 document.getElementById("target").innerText = lastStatus.target.toFixed(1);
-if(!editingRation){
-document.getElementById("setg").value = lastStatus.target;
-}
 document.getElementById("lampDot")
 .classList.toggle("on", lastStatus.lamp==="ON");
 document.getElementById("autoDot").style.background =
