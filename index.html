@@ -344,17 +344,25 @@ function saveLampDur(){
 }
 
 function saveMail(){
-  if(!LOCAL_MODE){
-    // ta partie MQTT ne gère pas setmail (uniquement HTTP dans ton code ESP)
-    alert("Config email disponible uniquement en mode local (page ESP).");
-    return;
+
+  const payload =
+    (sender.value||"") + "|" +
+    (password.value||"") + "|" +
+    (recipient.value||"") + "|" +
+    (threshold.value||"");
+
+  if(LOCAL_MODE){
+    const s = encodeURIComponent(sender.value||"");
+    const p = encodeURIComponent(password.value||"");
+    const r = encodeURIComponent(recipient.value||"");
+    const t = encodeURIComponent(threshold.value||"");
+    httpCall(`/api/setmail?s=${s}&p=${p}&r=${r}&t=${t}`);
+  } else {
+    mqttSend("setmail:" + payload);
+    alert("Configuration mail envoyée.");
   }
-  const s = encodeURIComponent(sender.value||"");
-  const p = encodeURIComponent(password.value||"");
-  const r = encodeURIComponent(recipient.value||"");
-  const t = encodeURIComponent(threshold.value||"");
-  httpCall(`/api/setmail?s=${s}&p=${p}&r=${r}&t=${t}`);
 }
+
 
 function mailTest(){
   if(LOCAL_MODE) httpCall('/api/mailtest');
